@@ -1,5 +1,5 @@
 # Discord Music Bot
-![discord-music-go](./docs/discordgo-music.png]
+![discord-music-go](/docs/discordgo-music.png]
 
 ----
 

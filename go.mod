@@ -1,4 +1,4 @@
-module github.com/hayunofek/discord-music-bot
+module github.com/hayunofek/discord-bot
 
 go 1.16
 

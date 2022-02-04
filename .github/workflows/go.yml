@@ -1,0 +1,69 @@
+name: Go
+
+on:
+  push:
+    tags:
+      - "*"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Set up Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: 1.16
+
+      - name: version
+        run: echo "::set-output name=version::$(make -s version)"
+        id: version
+
+      - name: Dependencies
+        run: go mod tidy
+
+      - name: Make Release
+        run: make release
+
+      - name: release
+        uses: actions/create-release@v1
+        id: create_release
+        with:
+          draft: false
+          prerelease: false
+          release_name: v${{ steps.version.outputs.version }}
+          tag_name: ${{ github.ref }}
+          body_path: CHANGELOG.md
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+
+      - name: upload linux artifact
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./bin/linux_amd64/discord-bot
+          asset_name: discord-bot_linux_${{ steps.version.outputs.version }}
+          asset_content_type: application/octet-stream
+
+      - name: upload darwin artifact
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./bin/darwin_amd64/discord-bot
+          asset_name: discord-bot_macOS_${{ steps.version.outputs.version }}
+          asset_content_type: application/octet-stream
+
+      - name: upload windows artifact
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./bin/windows_amd64/discord-bot.exe
+          asset_name: discord-bot_windows_${{ steps.version.outputs.version }}.exe
+          asset_content_type: application/octet-stream

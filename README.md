@@ -9,8 +9,8 @@ Discord Bot, is a discord bot that was written using Go and the module Discord-G
 # How to use
 1. Download the relevant binary from [Releases](https://github.com/hayunofek/discord-bot/releases)
 1. Extract the binary on your computer
-1. Create a file named `token` which contains **only** the discord token. Information about how to get this token can be found [further in this document](#How-to-get-a-discord-bot-token).
-1. Add your bot to your server. Information about how to add a discord bot to your server can be found [further in this document](#How-to-add-a-bot-to-my-server).
+1. Create a file named `token` which contains **only** the discord token. Information about how to get this token can be found [further in this document](#how-to-get-a-discord-bot-token).
+1. Add your bot to your server. Information about how to add a discord bot to your server can be found [further in this document](#how-to-add-a-bot-to-my-server).
 1. Run the binary you downloaded, and enjoy the bot!
 
 ## Commands

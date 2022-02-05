@@ -2,6 +2,7 @@ TEST?=$$(go list ./... | grep -v 'vendor')
 NAME=discord-bot
 BINARY=discord-bot
 OS_ARCH=linux_amd64
+version=0.0.5
 
 default: release
 

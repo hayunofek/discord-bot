@@ -25,8 +25,10 @@ type YoutubeSong struct {
 // converts the mp4 file to a dca (Discord Audio File) and then plays it
 func PlayCommand(s *discordgo.Session, i *discordgo.MessageCreate, dc *cmd.DiscordCommand) (string, error) {
 	ys := YoutubeSong{
-		URL: strings.Split(strings.TrimPrefix(dc.GetMyCommandPrefix(), i.Content), " ")[1],
+		URL: strings.TrimPrefix(i.Content, dc.GetMyCommandPrefix()+" "),
 	}
+
+	log.Printf("\nDownloading song: %s\n", ys.URL)
 
 	downloadedVideoFileName, err := ys.download()
 	if err != nil {
@@ -35,6 +37,8 @@ func PlayCommand(s *discordgo.Session, i *discordgo.MessageCreate, dc *cmd.Disco
 	}
 
 	defer os.Remove(downloadedVideoFileName)
+
+	log.Printf("\nConverting to Opus: %s\n", downloadedVideoFileName)
 
 	opusFilename, err := ConvertMP4ToOpus(downloadedVideoFileName)
 	if err != nil {
@@ -54,6 +58,8 @@ func PlayCommand(s *discordgo.Session, i *discordgo.MessageCreate, dc *cmd.Disco
 	// 	log.Printf("Error getting guild, err: %v", err)
 	// }
 
+	log.Printf("\nJoining Voice Channel %s\n", i.ChannelID)
+
 	vc, err := s.ChannelVoiceJoin(i.GuildID, i.ChannelID, false, true)
 	if err != nil {
 		log.Printf("Error joining voice channel, err: %v", err)
@@ -62,6 +68,7 @@ func PlayCommand(s *discordgo.Session, i *discordgo.MessageCreate, dc *cmd.Disco
 
 	defer vc.Disconnect()
 
+	log.Printf("\nOpening opus file\n")
 	file, err := os.Open(opusFilename)
 	if err != nil {
 		log.Printf("Error opening opus file, err: %v", err)
@@ -70,6 +77,7 @@ func PlayCommand(s *discordgo.Session, i *discordgo.MessageCreate, dc *cmd.Disco
 
 	defer file.Close()
 
+	log.Printf("\nFilling buffer\n")
 	buffer, err := fillBufferFromOpus(file)
 	if err != nil {
 
@@ -83,6 +91,7 @@ func PlayCommand(s *discordgo.Session, i *discordgo.MessageCreate, dc *cmd.Disco
 	vc.Speaking(true)
 	defer vc.Speaking(false)
 
+	log.Printf("\nSending opus data from buffer\n")
 	for _, buff := range buffer {
 		vc.OpusSend <- buff
 	}
@@ -90,6 +99,7 @@ func PlayCommand(s *discordgo.Session, i *discordgo.MessageCreate, dc *cmd.Disco
 	// Sleepf or a little while before exiting
 	time.Sleep(250 * time.Millisecond)
 
+	log.Printf("\nFinishing...\n")
 	return fmt.Sprintf("You chose to play music my friend. Your song name: %s", ys.URL), nil
 }
 
@@ -142,8 +152,8 @@ func (ys *YoutubeSong) download() (string, error) {
 }
 
 func ConvertMP4ToOpus(filename string) (string, error) {
-	opusFilename := strings.Split(filename, ".")[0]
-	ffmpegArgs := fmt.Sprintf("-y -i %s -strict -2 %s.opus", filename, opusFilename)
+	opusFilename := "DB" + strings.Split(filename, ".")[0] + ".opus"
+	ffmpegArgs := fmt.Sprintf("-y -i %s -strict -2 %s", filename, opusFilename)
 	ffmpegArgsSplitted := strings.Split(ffmpegArgs, " ")
 	cmd := exec.Command(
 		"ffmpeg",

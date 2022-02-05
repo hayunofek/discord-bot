@@ -56,6 +56,7 @@ func main() {
 
 	s.AddHandler(func(s *discordgo.Session, r *discordgo.Ready) {
 		log.Println("Bot is up and running!")
+		s.UpdateGameStatus(0, "!coolstuff")
 	})
 
 	err = s.Open()

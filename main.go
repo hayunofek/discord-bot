@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"os"
 	"os/signal"
@@ -33,24 +34,29 @@ var discordCommands []cmd.DiscordCommand = []cmd.DiscordCommand{
 var s *discordgo.Session
 
 func init() {
-	flag.Parse()
-
-	if *BotToken == "" {
-		log.Fatalln("Token is missing!")
+	tokenFile, err := ioutil.ReadFile("token")
+	if err != nil {
+		log.Fatalln("Couldn't read token file!")
 	}
 
+	token := strings.TrimSpace(strings.ReplaceAll(string(tokenFile), "\n", ""))
+	if token == "" {
+		log.Fatalln("token file is empty!")
+	}
+
+	BotToken = &token
+}
+
+func main() {
 	var err error
 	s, err = discordgo.New("Bot " + *BotToken)
 	if err != nil {
 		log.Fatalf("Invalid bot parameters: %v", err)
 	}
 
-	defer func() {
-		stop := make(chan os.Signal, 1)
-		signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
-		<-stop
-		log.Println("Gracefully shutdowning")
-	}()
+	s.AddHandler(func(s *discordgo.Session, r *discordgo.Ready) {
+		log.Println("Bot is up and running!")
+	})
 
 	err = s.Open()
 	if err != nil {
@@ -58,12 +64,13 @@ func init() {
 	}
 
 	defer s.Close()
-}
 
-func main() {
-	s.AddHandler(func(s *discordgo.Session, i *discordgo.PresenceUpdate) {
-		s.ChannelMessageSend("", fmt.Sprintf("Hey %s, your state is: %s", i.User.Username, i.Status))
-	})
+	defer func() {
+		stop := make(chan os.Signal, 1)
+		signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
+		<-stop
+		log.Println("Gracefully shutdowning")
+	}()
 
 	s.AddHandler(func(s *discordgo.Session, i *discordgo.MessageCreate) {
 		if strings.HasPrefix(i.Content, cmd.PREFIX_SIGN) {
@@ -84,10 +91,6 @@ func main() {
 				}
 			}
 		}
-	})
-
-	s.AddHandler(func(s *discordgo.Session, r *discordgo.Ready) {
-		log.Println("Bot is up!")
 	})
 
 }

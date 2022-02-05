@@ -1,14 +1,12 @@
 package music
 
 import (
-	"encoding/binary"
 	"errors"
 	"fmt"
 	"io"
 	"log"
 	"net/url"
 	"os"
-	"os/exec"
 	"strings"
 	"time"
 
@@ -150,71 +148,4 @@ func (ys *YoutubeSong) download() (string, error) {
 	}
 
 	return fileName, nil
-}
-
-// Unused
-func convertMP4ToOpus(filename string) (string, error) {
-	opusFilename := "DB" + strings.Split(filename, ".")[0] + ".opus"
-	ffmpegArgs := fmt.Sprintf("-y -i %s -strict -2 %s", filename, opusFilename)
-	ffmpegArgsSplitted := strings.Split(ffmpegArgs, " ")
-	cmd := exec.Command(
-		"ffmpeg",
-		ffmpegArgsSplitted...,
-	)
-
-	_, err := cmd.CombinedOutput()
-	if err != nil {
-		log.Printf("Got an error trying to convert MP4 to DCA, error: %v", err)
-		return "", err
-	}
-
-	return opusFilename, nil
-}
-
-// Unused
-func fillBufferFromOpus(file *os.File) ([][]byte, error) {
-	buffer := [][]byte{}
-	// var opuslen int16
-	FRAME_SIZE := 960
-	CHANNELS := 2
-	var err error
-
-	for {
-		// // Read opus frame length from dca file.
-		// err := binary.Read(file, binary.LittleEndian, &opuslen)
-
-		// // If this is the end of the file, just return.
-		// if err == io.EOF || err == io.ErrUnexpectedEOF {
-		// 	err := file.Close()
-		// 	if err != nil {
-		// 		return nil, err
-		// 	}
-		// 	return buffer, nil
-		// }
-
-		// if err != nil {
-		// 	fmt.Println("Error reading from dca file :", err)
-		// 	return nil, err
-		// }
-		// fmt.Printf("\nlen: %d\n", opuslen)
-
-		// if opuslen < 0 {
-		// 	return buffer, nil
-		// }
-
-		// Read encoded pcm from dca file.
-		InBuf := make([]byte, FRAME_SIZE*CHANNELS)
-		err = binary.Read(file, binary.LittleEndian, &InBuf)
-		if err == io.EOF || err == io.ErrUnexpectedEOF {
-			log.Printf("\nClosing!\n")
-			err := file.Close()
-			if err != nil {
-				return nil, err
-			}
-			return buffer, nil
-		}
-
-		// Append encoded pcm data to the buffer.
-		buffer = append(buffer, InBuf)
-	}
 }

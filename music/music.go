@@ -2,6 +2,7 @@ package music
 
 import (
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -14,6 +15,7 @@ import (
 	"github.com/hayunofek/discord-bot/cmd"
 	"github.com/kkdai/youtube/v2"
 
+	"github.com/bwmarrin/dgvoice"
 	"github.com/bwmarrin/discordgo"
 )
 
@@ -38,52 +40,13 @@ func PlayCommand(s *discordgo.Session, i *discordgo.MessageCreate, dc *cmd.Disco
 
 	defer os.Remove(downloadedVideoFileName)
 
-	log.Printf("\nConverting to Opus: %s\n", downloadedVideoFileName)
-
-	opusFilename, err := ConvertMP4ToOpus(downloadedVideoFileName)
+	vc, err := joinVoiceChannel(s, i)
 	if err != nil {
-		log.Printf("Unable to convert video to opus, url: %s, error: %v", ys.URL, err)
-		return "", err
-	}
-
-	defer os.Remove(opusFilename)
-
-	// channel, err := s.State.Channel(i.ChannelID)
-	// if err != nil {
-	// 	log.Printf("Error getting channel, err: %v", err)
-	// }
-
-	// guild, err := s.State.Guild(channel.GuildID)
-	// if err != nil {
-	// 	log.Printf("Error getting guild, err: %v", err)
-	// }
-
-	log.Printf("\nJoining Voice Channel %s\n", i.ChannelID)
-
-	vc, err := s.ChannelVoiceJoin(i.GuildID, i.ChannelID, false, true)
-	if err != nil {
-		log.Printf("Error joining voice channel, err: %v", err)
+		log.Printf("\nGot an error trying to join voice channel, error: %v", err)
 		return "", err
 	}
 
 	defer vc.Disconnect()
-
-	log.Printf("\nOpening opus file\n")
-	file, err := os.Open(opusFilename)
-	if err != nil {
-		log.Printf("Error opening opus file, err: %v", err)
-		return "", err
-	}
-
-	defer file.Close()
-
-	log.Printf("\nFilling buffer\n")
-	buffer, err := fillBufferFromOpus(file)
-	if err != nil {
-
-		log.Printf("Error filling buffer with opus data, err: %v", err)
-		return "", err
-	}
 
 	// Sleep for a little while before playing the sound
 	time.Sleep(250 * time.Millisecond)
@@ -91,16 +54,54 @@ func PlayCommand(s *discordgo.Session, i *discordgo.MessageCreate, dc *cmd.Disco
 	vc.Speaking(true)
 	defer vc.Speaking(false)
 
-	log.Printf("\nSending opus data from buffer\n")
-	for _, buff := range buffer {
-		vc.OpusSend <- buff
-	}
+	dgvoice.PlayAudioFile(vc, downloadedVideoFileName, make(chan bool))
 
-	// Sleepf or a little while before exiting
+	// Sleep for a little while before exiting
 	time.Sleep(250 * time.Millisecond)
 
 	log.Printf("\nFinishing...\n")
 	return fmt.Sprintf("You chose to play music my friend. Your song name: %s", ys.URL), nil
+}
+
+func joinVoiceChannel(s *discordgo.Session, i *discordgo.MessageCreate) (*discordgo.VoiceConnection, error) {
+	// Find the channel that the message came from
+	channel, err := s.State.Channel(i.ChannelID)
+	if err != nil {
+		log.Printf("Error getting channel, err: %v", err)
+	}
+
+	// Find the guild for that channel
+	guild, err := s.State.Guild(channel.GuildID)
+	if err != nil {
+		log.Printf("Error getting guild, err: %v", err)
+	}
+
+	guildID := ""
+	channelID := ""
+
+	for _, vs := range guild.VoiceStates {
+		if vs.UserID == i.Author.ID {
+			guildID = guild.ID
+			channelID = vs.ChannelID
+			break
+		}
+	}
+
+	if guildID == "" || channelID == "" {
+		err = errors.New("couldn't find channel id and guild id for the requesting user")
+		log.Printf("\n%v\n", err)
+		return nil, err
+	}
+
+	log.Printf("\nJoining Voice Channel %s\n", i.ChannelID)
+
+	vc, err := s.ChannelVoiceJoin(guildID, channelID, false, false)
+	if err != nil {
+		log.Printf("Error joining voice channel, err: %v", err)
+		return nil, err
+	}
+
+	return vc, nil
 }
 
 // This function downloads the youtube song, returns the name of the filename it downloaded
@@ -151,7 +152,8 @@ func (ys *YoutubeSong) download() (string, error) {
 	return fileName, nil
 }
 
-func ConvertMP4ToOpus(filename string) (string, error) {
+// Unused
+func convertMP4ToOpus(filename string) (string, error) {
 	opusFilename := "DB" + strings.Split(filename, ".")[0] + ".opus"
 	ffmpegArgs := fmt.Sprintf("-y -i %s -strict -2 %s", filename, opusFilename)
 	ffmpegArgsSplitted := strings.Split(ffmpegArgs, " ")
@@ -169,16 +171,42 @@ func ConvertMP4ToOpus(filename string) (string, error) {
 	return opusFilename, nil
 }
 
+// Unused
 func fillBufferFromOpus(file *os.File) ([][]byte, error) {
-	buffer := make([][]byte, 0)
-	var opuslen int16
+	buffer := [][]byte{}
+	// var opuslen int16
+	FRAME_SIZE := 960
+	CHANNELS := 2
+	var err error
 
 	for {
-		// Read opus frame length from dca file.
-		err := binary.Read(file, binary.LittleEndian, &opuslen)
+		// // Read opus frame length from dca file.
+		// err := binary.Read(file, binary.LittleEndian, &opuslen)
 
-		// If this is the end of the file, just return.
+		// // If this is the end of the file, just return.
+		// if err == io.EOF || err == io.ErrUnexpectedEOF {
+		// 	err := file.Close()
+		// 	if err != nil {
+		// 		return nil, err
+		// 	}
+		// 	return buffer, nil
+		// }
+
+		// if err != nil {
+		// 	fmt.Println("Error reading from dca file :", err)
+		// 	return nil, err
+		// }
+		// fmt.Printf("\nlen: %d\n", opuslen)
+
+		// if opuslen < 0 {
+		// 	return buffer, nil
+		// }
+
+		// Read encoded pcm from dca file.
+		InBuf := make([]byte, FRAME_SIZE*CHANNELS)
+		err = binary.Read(file, binary.LittleEndian, &InBuf)
 		if err == io.EOF || err == io.ErrUnexpectedEOF {
+			log.Printf("\nClosing!\n")
 			err := file.Close()
 			if err != nil {
 				return nil, err
@@ -186,23 +214,7 @@ func fillBufferFromOpus(file *os.File) ([][]byte, error) {
 			return buffer, nil
 		}
 
-		if err != nil {
-			fmt.Println("Error reading from dca file :", err)
-			return nil, err
-		}
-
-		// Read encoded pcm from dca file.
-		InBuf := make([]byte, opuslen)
-		err = binary.Read(file, binary.LittleEndian, &InBuf)
-
-		// Should not be any end of file errors
-		if err != nil {
-			fmt.Println("Error reading from dca file :", err)
-			return nil, err
-		}
-
 		// Append encoded pcm data to the buffer.
 		buffer = append(buffer, InBuf)
 	}
-	return buffer, nil
 }

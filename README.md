@@ -30,5 +30,5 @@ Example: `!play https://www.youtube.com/watch?v=klZNvJArVSE`
 1. Go into [Discord Developer Portal](https://discord.com/developers/applications) and sign in.
 2. Click on the **General Information** blade located on the left side of the page.
 3. Copy the **Application Id** placed around the center of the page.
-4. Replace the application id in the following url `https://discord.com/api/oauth2/authorize?client_id=[application_id]8&permissions=0&scope=bot%20applications.commands`
+4. Replace the application id in the following url `https://discord.com/api/oauth2/authorize?client_id=[application_id]&permissions=0&scope=bot%20applications.commands`
 5. Go into the url you just created, and add the bot
